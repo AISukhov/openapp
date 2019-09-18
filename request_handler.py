@@ -1,11 +1,11 @@
 import sys
 import time
 import requests
-import concurrent.futures
+import threading
 from datetime import datetime
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
-import db_interaction
+#import db_interaction
 
 
 class WeatherView:
@@ -16,7 +16,7 @@ class WeatherView:
         self.url = 'http://api.openweathermap.org/data/2.5/weather'
         self.attempts = Retry(total=5, backoff_factor=0.3)
         self.req_adapter = HTTPAdapter(max_retries=self.attempts)
-        self.message = 'No data'
+        self.message = ''
 
     def get_weather(self, transmit_country, transmit_city):
         '''Current function gets the response from the remote server.
@@ -27,22 +27,23 @@ class WeatherView:
                 transmit_city(str): name of city defined by user
         '''
         while True:
-            self.__request(transmit_country, transmit_city)
-            self.__processing()
-            self.__output()
-            time.sleep(1800)
+            try:
+                self.__request(transmit_country, transmit_city)
+                self.__processing()
+                self.__output()
+                time.sleep(1800)
+            except Exception as e:
+                print(e.__class__.__name__)
+                return
 
     def __request(self, req_country, req_city):
         addition_param = {'q': req_city + ',' + req_country, 'appid': '332aff71953e43412a946ab10190bc7a'}
         session = requests.Session()
         session.mount(self.url, self.req_adapter)
         with session:
-            try:
-                r = session.request('GET', self.url, params=addition_param)
-            except requests.exceptions.ConnectionError as e:
-                print(e.__class__.__name__, 'Check your connection')
+            r = session.request('GET', self.url, params=addition_param)
         if r.status_code == 404:
-            print('City not found, invalid city name')
+            raise NameError('Invalid city name')
         self.content = r.json()
 
     def __processing(self):
@@ -66,7 +67,9 @@ class WeatherView:
         self.message = (', '.join([city_name, timestamp, weather, temp]))
 
     def __output(self):
-        db_interaction.save_to_db(self.message)
+        print(self.message)
+        # print function will be replaced by
+        # db_interaction.save_to_db(self.message)
 
     def io_handler(self):
         while True:
@@ -74,7 +77,7 @@ class WeatherView:
             # Current function is just a dummy to check, that threads work properly
             # implementation of function will be added
             if key == 'F':
-                sys.exit()
+                return
             elif key == 'C':
                 city_date = input('Type city name and the date in format "City D.M.YEAR"\n').split()
             else:
@@ -85,8 +88,17 @@ if __name__ == '__main__':
     country = input('Please type your country abbreviation\n')
     city = input('Please type your city\n')
     MyW = WeatherView()
-    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
-        executor.submit(MyW.get_weather, country, city)
-        executor.submit(MyW.io_handler)
+    request_thread = threading.Thread(target=MyW.get_weather, args=(country, city), daemon=True)
+    uinp_thread = threading.Thread(target=MyW.io_handler, daemon=True)
+    request_thread.start()
+    # start second thread after
+    # receiving of the correct response
+    while not MyW.message:
+        if request_thread.isAlive():
+            pass
+        else:
+            sys.exit()
+    uinp_thread.start()
+    uinp_thread.join()
 
 
