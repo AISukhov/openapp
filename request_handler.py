@@ -28,15 +28,15 @@ class WeatherView:
         '''
         while True:
             try:
-                self.__request(transmit_country, transmit_city)
-                self.__processing()
-                self.__output()
+                self._request(transmit_country, transmit_city)
+                self._processing()
+                self._output()
                 time.sleep(1800)
             except Exception as e:
                 print(e.__class__.__name__)
                 return
 
-    def __request(self, req_country, req_city):
+    def _request(self, req_country, req_city):
         addition_param = {'q': req_city + ',' + req_country, 'appid': '332aff71953e43412a946ab10190bc7a'}
         session = requests.Session()
         session.mount(self.url, self.req_adapter)
@@ -46,7 +46,7 @@ class WeatherView:
             raise NameError('Invalid city name')
         self.content = r.json()
 
-    def __processing(self):
+    def _processing(self):
         city_name = self.content['name']
         unix_time = self.content['dt']
         # Get utc offset in seconds
@@ -66,7 +66,7 @@ class WeatherView:
             timestamp = datetime.utcfromtimestamp(unix_time + utc_offset).strftime('%a %d %b %Y %H:%M')
         self.message = (', '.join([city_name, timestamp, weather, temp]))
 
-    def __output(self):
+    def _output(self):
         print(self.message)
         # print function will be replaced by
         # db_interaction.save_to_db(self.message)
@@ -89,7 +89,7 @@ if __name__ == '__main__':
     city = input('Please type your city\n')
     MyW = WeatherView()
     request_thread = threading.Thread(target=MyW.get_weather, args=(country, city), daemon=True)
-    uinp_thread = threading.Thread(target=MyW.io_handler, daemon=True)
+    uinp_thread = threading.Thread(target=MyW.io_handler)
     request_thread.start()
     # start second thread after
     # receiving of the correct response
@@ -99,6 +99,6 @@ if __name__ == '__main__':
         else:
             sys.exit()
     uinp_thread.start()
-    uinp_thread.join()
+
 
 
