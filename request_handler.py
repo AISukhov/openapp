@@ -5,7 +5,7 @@ import threading
 from datetime import datetime
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
-#import db_interaction
+import db_interaction
 
 
 class WeatherView:
@@ -29,8 +29,8 @@ class WeatherView:
         while True:
             try:
                 self._request(transmit_country, transmit_city)
-                self._processing()
-                self._output()
+                to_output = self._processing()
+                self._output(to_output)
                 time.sleep(1800)
             except Exception as e:
                 print(e.__class__.__name__)
@@ -47,11 +47,13 @@ class WeatherView:
         self.content = r.json()
 
     def _processing(self):
+        country_name = self.content['sys']['country']
         city_name = self.content['name']
         unix_time = self.content['dt']
         # Get utc offset in seconds
         # to display local time
         utc_offset = self.content['timezone']
+        local_time = unix_time + utc_offset
         weather = self.content['weather'][0]
         weather = weather['description']
         # Get the temperature in Kelvin
@@ -60,26 +62,29 @@ class WeatherView:
         # Adapt date output according to chosen country
         if self.content['sys']['country'] == 'US':
             temp = str(int(kelvin * (9 / 5) - 459.67)) + 'F'
-            timestamp = datetime.utcfromtimestamp(unix_time + utc_offset).strftime('%a %b %d %Y %H:%M')
+            timestamp = datetime.utcfromtimestamp(local_time).strftime('%a %b %d %Y %H:%M')
+            date = datetime.utcfromtimestamp(local_time).strftime('%m.%d.%Y')
         else:
             temp = str(int(kelvin - 273.15)) + 'C'
-            timestamp = datetime.utcfromtimestamp(unix_time + utc_offset).strftime('%a %d %b %Y %H:%M')
+            timestamp = datetime.utcfromtimestamp(local_time).strftime('%a %d %b %Y %H:%M')
+            date = datetime.utcfromtimestamp(local_time).strftime('%d.%m.%Y')
         self.message = (', '.join([city_name, timestamp, weather, temp]))
+        return (country_name, city_name, date)
 
-    def _output(self):
-        print(self.message)
-        # print function will be replaced by
-        # db_interaction.save_to_db(self.message)
+    def _output(self, args):
+        DB.save_to_db(*args, self.message)
 
     def io_handler(self):
         while True:
-            key = input('Type F to finish the program execution, C to check the weather\n')
-            # Current function is just a dummy to check, that threads work properly
-            # implementation of function will be added
+            key = input('Type C to check the weather, F to finish the program execution\n')
             if key == 'F':
                 return
             elif key == 'C':
-                city_date = input('Type city name and the date in format "City D.M.YEAR"\n').split()
+                cntry = input('Enter country abbreviation\n')
+                ct = input('City name\n')
+                dt = input('Date according to format "18.09.2019"\n')
+                for res in DB.retrieve_from_db((cntry, ct, dt)):
+                    print(res['Message'])
             else:
                 print('Invalid key, please try again according to hint')
 
@@ -88,6 +93,7 @@ if __name__ == '__main__':
     country = input('Please type your country abbreviation\n')
     city = input('Please type your city\n')
     MyW = WeatherView()
+    DB = db_interaction.DataBase()
     request_thread = threading.Thread(target=MyW.get_weather, args=(country, city), daemon=True)
     uinp_thread = threading.Thread(target=MyW.io_handler)
     request_thread.start()
