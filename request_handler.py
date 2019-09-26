@@ -37,7 +37,7 @@ class WeatherView:
             raise NameError()
         return r.json()
 
-    def _processing(self, content, temp_unit):
+    def _processing(self, content, temp_unit='C'):
         city_name = content['name']
         unix_time = content['dt']
         # Get utc offset in seconds
@@ -49,11 +49,9 @@ class WeatherView:
         # Get the temperature in Kelvin
         kelvin = content['main']['temp']
         timestamp = datetime.utcfromtimestamp(local_time).strftime('%a %d %b %Y %H:%M')
-        # Convert to Fahrenheit for United States, otherwise to Celsius
-        # Adapt date output according to chosen country
-        if temp_unit == 'F':
+        # Adapt output of weather according to received temperature unit
+        temp = str(int(kelvin - 273.15)) + 'C'
+        if temp_unit == 'F' or temp_unit == 'f':
             temp = str(int(kelvin * (9 / 5) - 459.67)) + 'F'
-        else:
-            temp = str(int(kelvin - 273.15)) + 'C'
         msg = (', '.join([city_name, timestamp, weather, temp]))
         return msg
