@@ -37,7 +37,7 @@ class WeatherView:
             raise NameError()
         return r.json()
 
-    def _processing(self, content, temp_unit='C'):
+    def _processing(self, content, temp_unit):
         city_name = content['name']
         unix_time = content['dt']
         # Get utc offset in seconds

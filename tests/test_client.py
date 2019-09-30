@@ -11,12 +11,14 @@ class TestClient(TestCase):
     def test_not_found_response(self):
         response = self.client.get('http://localhost:5050/weather/')
         self.assertEqual(404, response.status_code)
+        response = self.client.get('http://localhost:5050/weather/Lon/don')
+        self.assertEqual(404, response.status_code)
 
-    def test_bad_request(self):
+    def test_default_instead_of_missing_params(self):
         response = self.client.get('http://localhost:5050/weather/London')
-        self.assertEqual(400, response.status_code)
-        response = self.client.get('http://localhost:5050/weather/London?uni')
-        self.assertEqual(400, response.status_code)
+        self.assertEqual(200, response.status_code)
+        response = self.client.get('http://localhost:5050/weather/London?unit=')
+        self.assertEqual(200, response.status_code)
 
     def test_positive_response_celsius(self):
         response = self.client.get('http://localhost:5050/weather/London?unit=C')
